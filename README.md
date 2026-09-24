@@ -1,25 +1,16 @@
 # Rubik's Cube Solver
 
-This project is a C++17 Rubik's Cube solver built with CMake. It models cube states, applies standard face moves, generates scrambles, and searches for solutions with breadth-first search (BFS) and heuristic-guided Iterative Deepening A* (IDA*).
+This project is a C++17 Rubik's Cube solver built with CMake and Emscripten. It models cube states, applies standard face moves, generates scrambles, and searches for solutions with breadth-first search (BFS) and heuristic-guided Iterative Deepening A* (IDA*). The same solver core is available as a native CLI and as a browser application backed by WebAssembly.
 
-The motivation is to make the structure of a cube solver explicit: represent the state compactly, treat moves as graph edges, compare uninformed and informed search, and measure how their behavior changes as scrambles become deeper.
+The project compares an uninformed shortest-path search with a heuristic-guided search in both native and browser environments.
 
-## Graph Framing
+## Repository Layout
 
-Each reachable cube state is a node in an implicit graph. Each legal move is an edge from one state to another. Solving is therefore a shortest-path search from the scrambled node to the solved node.
-
-The full state space contains approximately 4.3 x 10^19 reachable states. The project never constructs that graph in memory. BFS, IDA*, and the scrambler generate successor states on the fly as they need them.
-
-## Cube Representation
-
-The solver uses a cubie model rather than a facelet array:
-
-- `cornerPerm[8]` identifies which corner cubie occupies each corner position.
-- `cornerOrient[8]` stores the twist of each corner, with values from 0 to 2.
-- `edgePerm[12]` identifies which edge cubie occupies each edge position.
-- `edgeOrient[12]` stores the flip of each edge, with values from 0 to 1.
-
-A facelet model would store the color of every visible sticker, typically as 54 face values. That representation is intuitive for rendering and camera input, but moves must update many stickers and validity checks are more involved. The cubie model was chosen because it is compact, directly represents the pieces moved by each turn, and makes permutation/orientation updates and search-state comparisons efficient.
+- `src/`: native solver, cube model, move engine, scrambler, heuristics, and WebAssembly bindings.
+- `tests/`: native move and solver tests.
+- `web/index.html`: browser UI with the Three.js cube and solver controls.
+- `web/cube_solver.js` and `web/cube_solver.wasm`: browser-ready Emscripten artifacts.
+- `build/`: native CMake output and local WebAssembly build output.
 
 ## Solvers
 
@@ -37,45 +28,107 @@ f(state) = g(state) + h(state)
 
 `g` is the number of moves already taken, and `h` is the heuristic estimate. The search uses a maximum depth or timeout where applicable so deeper searches fail gracefully.
 
-The heuristic counts corners that are in the wrong position or orientation and rounds that count divided by 4 upward. It does the same for edges, then returns the larger of the two values:
+The heuristic counts misplaced or incorrectly oriented corners and edges, divides each count by four, rounds upward, and uses the larger estimate. This is admissible because one face turn affects at most four corners or four edges.
 
 ```text
-cornerEstimate = ceil(misplacedCorners / 4)
-edgeEstimate   = ceil(misplacedEdges / 4)
-heuristic      = max(cornerEstimate, edgeEstimate)
+heuristic = max(ceil(misplacedCorners / 4), ceil(misplacedEdges / 4))
 ```
-
-This is admissible because each estimate is a lower bound on the moves still required: one move can affect at most four corners or four edges. Taking the maximum of admissible lower bounds remains a lower bound on the true solution distance. Summing them is not safe because one move can improve both the corner and edge measures at the same time, causing the sum to overestimate.
 
 Both solvers prune a move that directly undoes the previous move. IDA* also prunes three consecutive turns of the same face because that sequence can be represented by an equivalent one- or two-turn move.
 
-## Benchmark Results
+## Browser Application
 
-The benchmark uses the same randomly generated scramble for BFS and IDA* at each listed depth. Each solver has a two-second timeout. Times are from the recorded `benchmark_results.csv` run.
+The browser app provides:
 
-| Scramble depth | Solver | Status | Time (ms) | Nodes explored | Solution length |
-|---:|:---|:---|---:|---:|---:|
-| 3 | BFS | success | 9.339 | 239 | 3 |
-| 3 | IDA* | success | 0.100 | 90 | 3 |
-| 5 | BFS | success | 670.431 | 32,850 | 5 |
-| 5 | IDA* | success | 2.116 | 5,538 | 5 |
-| 7 | BFS | timeout | 2,355.678 | 108,924 | - |
-| 7 | IDA* | success | 206.464 | 572,156 | 7 |
-| 9 | BFS | timeout | 2,308.052 | 109,272 | - |
-| 9 | IDA* | timeout | 2,000.002 | 5,120,794 | - |
+- A 3D solved-looking cube with 26 cubies rendered by Three.js.
+- OrbitControls for mouse/touch rotation and scroll or pinch zoom.
+- A scramble count input and Scramble, Solve with BFS, and Solve with IDA* buttons.
+- Step-by-step solution playback with a 500 ms delay between moves.
+- Results for status, moves, explored nodes, and elapsed time.
+- A solved-state check that skips search and animation when the cube is already solved.
 
-The results show the expected tradeoff. BFS is straightforward and guarantees a shortest solution when it finishes, but its explored-state and memory costs rise sharply. IDA* explores more nodes than BFS in some successful cases, but the heuristic lets it use much less memory and solve the depth-7 sample where BFS timed out. At depth 9, even IDA* reaches the configured timeout, showing that the basic heuristic is useful but not sufficient for difficult full-size scrambles.
+The WASM cube is the authoritative state. Scramble moves and solution moves update both the WASM state and the visual cube, so a second solve correctly reports `Cube is already solved`.
+
+### WebAssembly Build
+
+Install and activate Emscripten in a sibling directory such as `F:\Coding\emsdk`, then run this command from the project root:
+
+```powershell
+emcc -std=c++17 -O3 --bind -fexceptions `
+	-sDISABLE_EXCEPTION_CATCHING=0 `
+	-sDEFAULT_TO_CXX=1 `
+	-sALLOW_MEMORY_GROWTH=1 `
+	-sINITIAL_MEMORY=33554432 `
+	-sASSERTIONS=1 `
+	src/wasm_bindings.cpp `
+	src/Cube.cpp src/MoveEngine.cpp src/Scrambler.cpp `
+	src/Heuristic.cpp src/SolverBFS.cpp src/SolverIDAStar.cpp `
+	-o build/cube_solver.js `
+	-sMODULARIZE=1 -sEXPORT_ES6=1
+```
+
+For deployment, copy the generated files into `web/` because `web` is the static hosting output directory:
+
+```powershell
+Copy-Item build\cube_solver.js web\cube_solver.js -Force
+Copy-Item build\cube_solver.wasm web\cube_solver.wasm -Force
+```
+
+`web/index.html` imports the module with `./cube_solver.js`.
+
+### Run Locally
+
+Browsers must load the JavaScript module and WASM file over HTTP. From the project root:
+
+```powershell
+python -m http.server 8000 -d web
+```
+
+Open [http://localhost:8000/](http://localhost:8000/).
+
+### Deploy with Vercel
+
+Push the repository to GitHub, import it into Vercel, and configure it as a static project:
+
+- Framework preset: `Other`
+- Build command: empty
+- Install command: empty
+- Output directory: `web`
+
+The committed `web/cube_solver.js` and `web/cube_solver.wasm` files make the output directory self-contained.
+
+## WebAssembly Safety Limits
+
+The browser build uses a 32 MB initial heap with dynamic growth:
+
+```text
+-sINITIAL_MEMORY=33554432
+-sALLOW_MEMORY_GROWTH=1
+```
+
+The practical browser limit is approximately 2 GB for this wasm32 build. BFS is memory-heavy because it stores a queue and visited states, so the browser binding uses:
+
+- Maximum search depth: 10 moves.
+- Wall-clock timeout: 60 seconds.
+- Visited-state cap: 5,000,000 states.
+
+When BFS reaches its state cap, it returns `Timeout` instead of continuing toward a hard allocation failure. Diagnostic result fields also expose the stored-state count and stop reason during development.
+
+IDA* searches depth-first and does not maintain a large visited-state set. Its browser limits are:
+
+- Maximum search depth: 30 moves.
+- Wall-clock timeout: 60 seconds.
+- No arbitrary node-count cap.
+
+Both bindings catch C++ allocation/runtime exceptions where Emscripten can deliver them. The assertions build is useful for diagnostics, but a hard WebAssembly memory-growth abort can occur before C++ catches it, which is why BFS has a proactive state cap.
 
 ## Known Limitations
 
 BFS currently tracks visited cube states without including the previous move in the visited key, while inverse-move pruning depends on that previous move. The same cube state can therefore be reached through histories with different legal next moves. During testing, a history-aware visited key was explored; it improved completeness of the pruning model but substantially increased the BFS search cost and memory pressure for this implementation.
 
-That interaction was scoped out rather than fixed because this project is focused on comparing the baseline BFS and IDA* implementations, and the change would require a broader BFS state-management redesign. The limitation is one reason BFS is treated as a baseline and is bounded by a timeout.
+This is a known tradeoff of the baseline BFS implementation and contributes to its memory and performance limits.
 
-## Future Improvements
-
-- **Pattern databases:** Build reusable admissible lookup tables with backward BFS from the solved state. Pattern databases would provide much stronger heuristics than the current misplaced-piece count, at the cost of preprocessing and memory.
-- **Camera-based scanning:** Add a camera input pipeline that recognizes sticker colors and constructs a `CubeState`. This is out of scope because it requires image capture, color calibration, face detection, and robust cube-pose handling.
+The browser search runs synchronously on the main thread. A long BFS or IDA* search can therefore make the page unresponsive until the solver returns. A Web Worker is the natural next step for interruptible, non-blocking searches.
 
 ## Build and Run
 
@@ -106,3 +159,5 @@ The test executables can also be run directly:
 .\build\tests\move_tests.exe
 .\build\tests\solver_tests.exe
 ```
+
+The native CMake build does not include `src/wasm_bindings.cpp`; the WebAssembly module is a separate entry point and is built with the `emcc` command above.
