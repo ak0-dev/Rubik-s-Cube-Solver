@@ -6,6 +6,8 @@
 
 #include <chrono>
 #include <cstddef>
+#include <exception>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -65,7 +67,24 @@ struct WebSolveResult {
     std::string status;
     std::vector<std::string> moves;
     std::size_t nodesExplored;
+    std::size_t statesStored;
+    std::string stopReason;
 };
+
+WebSolveResult timeoutResult() {
+    return {"Timeout", {}, 0, 0, "Allocation failure"};
+}
+
+const char* bfsStopReasonName(BFSStopReason reason) {
+    switch (reason) {
+    case BFSStopReason::Deadline: return "Wall-clock timeout";
+    case BFSStopReason::StateLimit: return "Visited-state limit";
+    case BFSStopReason::Exhausted: return "Search exhausted";
+    case BFSStopReason::None: return "Unknown";
+    }
+
+    return "Unknown";
+}
 
 void resetCube() {
     currentCube = CubeState{};
@@ -113,29 +132,50 @@ MoveList scrambleCube(int numMoves) {
 }
 
 WebSolveResult solveCurrentCubeBFSWithOptions(int maxDepth, int timeoutMs) {
-    const SolveResult result = solveBFS(currentCube,
-                                        maxDepth,
-                                        std::chrono::milliseconds(timeoutMs));
-    return {statusName(result.status),
-            readableMoves(result.moves),
-            result.statesExplored};
+    try {
+        const SolveResult result = solveBFS(currentCube,
+                                            maxDepth,
+                                            std::chrono::milliseconds(timeoutMs),
+                                            5000000);
+        return {statusName(result.status),
+                readableMoves(result.moves),
+            result.statesExplored,
+            result.statesStored,
+            bfsStopReasonName(result.stopReason)};
+    } catch (const std::bad_alloc&) {
+        return timeoutResult();
+    } catch (const std::exception&) {
+        return timeoutResult();
+    }
 }
 
 WebSolveResult solveCurrentCubeBFS() {
-    return solveCurrentCubeBFSWithOptions(9, 10000);
+    return solveCurrentCubeBFSWithOptions(10, 60000);
 }
 
 WebSolveResult solveCurrentCubeIDAStarWithOptions(int maxDepth, int timeoutMs) {
-    const IDAStarResult result = solveIDAStar(
-        currentCube, maxDepth, std::chrono::milliseconds(timeoutMs));
-    const char* status = result.found
-                             ? "Solved"
-                             : (result.timedOut ? "Timeout" : "Not found");
-    return {status, readableMoves(result.moves), result.nodesExplored};
+    try {
+        const IDAStarResult result = solveIDAStar(
+            currentCube,
+            maxDepth,
+            std::chrono::milliseconds(timeoutMs));
+        const char* status = result.found
+                                 ? "Solved"
+                                 : (result.timedOut ? "Timeout" : "Not found");
+        return {status,
+            readableMoves(result.moves),
+            result.nodesExplored,
+            0,
+            result.timedOut ? "Wall-clock timeout" : "Search completed"};
+    } catch (const std::bad_alloc&) {
+        return timeoutResult();
+    } catch (const std::exception&) {
+        return timeoutResult();
+    }
 }
 
 WebSolveResult solveCurrentCubeIDAStar() {
-    return solveCurrentCubeIDAStarWithOptions(30, 10000);
+    return solveCurrentCubeIDAStarWithOptions(30, 60000);
 }
 
 }  // namespace
@@ -147,7 +187,9 @@ EMSCRIPTEN_BINDINGS(cube_solver) {
     emscripten::value_object<WebSolveResult>("SolveResult")
         .field("status", &WebSolveResult::status)
         .field("moves", &WebSolveResult::moves)
-        .field("nodesExplored", &WebSolveResult::nodesExplored);
+        .field("nodesExplored", &WebSolveResult::nodesExplored)
+        .field("statesStored", &WebSolveResult::statesStored)
+        .field("stopReason", &WebSolveResult::stopReason);
 
     emscripten::register_vector<std::string>("StringVector");
 

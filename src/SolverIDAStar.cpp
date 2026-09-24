@@ -85,7 +85,7 @@ int search(const CubeState& state,
            std::vector<Move>& solution,
            std::size_t& nodesExplored,
             int maxDepth,
-            const std::chrono::steady_clock::time_point* deadline) {
+           const std::chrono::steady_clock::time_point* deadline) {
         if (deadline != nullptr && std::chrono::steady_clock::now() >= *deadline) {
          return TimedOut;
         }

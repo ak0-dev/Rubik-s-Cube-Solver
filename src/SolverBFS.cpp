@@ -72,11 +72,19 @@ struct SearchNode {
 SolveResult solveBFS(const CubeState& start,
                      int maxDepth,
                      std::chrono::milliseconds timeout) {
-    SolveResult result{SolveStatus::NotFound, {}, 0};
+    return solveBFS(start, maxDepth, timeout, std::numeric_limits<std::size_t>::max());
+}
+
+SolveResult solveBFS(const CubeState& start,
+                     int maxDepth,
+                     std::chrono::milliseconds timeout,
+                     std::size_t maxStates) {
+    SolveResult result{SolveStatus::NotFound, {}, 0, 0, BFSStopReason::None};
     const auto deadline = std::chrono::steady_clock::now() + timeout;
 
     if (start.isSolved()) {
         result.status = SolveStatus::Solved;
+        result.stopReason = BFSStopReason::Exhausted;
         return result;
     }
 
@@ -84,6 +92,7 @@ SolveResult solveBFS(const CubeState& start,
         result.status = timeout.count() <= 0
                             ? SolveStatus::Timeout
                             : SolveStatus::NotFound;
+        result.stopReason = BFSStopReason::Deadline;
         return result;
     }
 
@@ -91,10 +100,20 @@ SolveResult solveBFS(const CubeState& start,
     std::unordered_set<CubeState, CubeStateHash> visited;
     queue.push_back({start, {}, Move::U, false});
     visited.insert(start);
+    result.statesStored = visited.size();
 
     while (!queue.empty()) {
         if (std::chrono::steady_clock::now() >= deadline) {
             result.status = SolveStatus::Timeout;
+            result.statesStored = visited.size();
+            result.stopReason = BFSStopReason::Deadline;
+            return result;
+        }
+
+        if (visited.size() >= maxStates) {
+            result.status = SolveStatus::Timeout;
+            result.statesStored = visited.size();
+            result.stopReason = BFSStopReason::StateLimit;
             return result;
         }
 
@@ -121,6 +140,8 @@ SolveResult solveBFS(const CubeState& start,
             if (nextState.isSolved()) {
                 result.status = SolveStatus::Solved;
                 result.moves = std::move(nextMoves);
+                result.statesStored = visited.size();
+                result.stopReason = BFSStopReason::Exhausted;
                 return result;
             }
 
@@ -128,5 +149,7 @@ SolveResult solveBFS(const CubeState& start,
         }
     }
 
+    result.statesStored = visited.size();
+    result.stopReason = BFSStopReason::Exhausted;
     return result;
 }
