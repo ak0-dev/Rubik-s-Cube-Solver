@@ -1,10 +1,10 @@
-Start testing: Sep 13 16:28 India Standard Time
+Start testing: Sep 24 15:56 India Standard Time
 ----------------------------------------------------------
 1/2 Testing: move_cycles
 1/2 Test: move_cycles
 Command: "F:/Coding/Project/build/tests/move_tests.exe"
 Directory: F:/Coding/Project/build/tests
-"move_cycles" start time: Sep 13 16:28 India Standard Time
+"move_cycles" start time: Sep 24 15:56 India Standard Time
 Output:
 ----------------------------------------------------------
 U: PASS
@@ -15,28 +15,28 @@ F: PASS
 B: PASS
 R U R' U' x6: PASS
 <end of output>
-Test time =   0.03 sec
+Test time =   1.15 sec
 ----------------------------------------------------------
 Test Passed.
-"move_cycles" end time: Sep 13 16:28 India Standard Time
-"move_cycles" time elapsed: 00:00:00
+"move_cycles" end time: Sep 24 15:56 India Standard Time
+"move_cycles" time elapsed: 00:00:01
 ----------------------------------------------------------
 
 2/2 Testing: solver_random_scrambles
 2/2 Test: solver_random_scrambles
 Command: "F:/Coding/Project/build/tests/solver_tests.exe"
 Directory: F:/Coding/Project/build/tests
-"solver_random_scrambles" start time: Sep 13 16:28 India Standard Time
+"solver_random_scrambles" start time: Sep 24 15:56 India Standard Time
 Output:
 ----------------------------------------------------------
 20/20 BFS passed
 20/20 IDA* passed
 <end of output>
-Test time =  24.94 sec
+Test time =  40.17 sec
 ----------------------------------------------------------
 Test Passed.
-"solver_random_scrambles" end time: Sep 13 16:29 India Standard Time
-"solver_random_scrambles" time elapsed: 00:00:24
+"solver_random_scrambles" end time: Sep 24 15:57 India Standard Time
+"solver_random_scrambles" time elapsed: 00:00:40
 ----------------------------------------------------------
 
-End testing: Sep 13 16:29 India Standard Time
+End testing: Sep 24 15:57 India Standard Time
