@@ -48,3 +48,12 @@
 49	698	8110003238618465	CMakeFiles/cube_solver.dir/src/SolverBFS.cpp.obj	3894af41c49f7771
 671	807	8110003244828435	tests/solver_tests.exe	2e449ec77449ac1b
 699	837	8110003245108463	cube_solver.exe	ba7ce895ce2dd121
+78	1223	8119520777028242	CMakeFiles/cube_solver.dir/src/SolverIDAStar.cpp.obj	446d35d32dbc086f
+124	1232	8119520777506504	tests/CMakeFiles/solver_tests.dir/__/src/SolverIDAStar.cpp.obj	b076c07cd065213f
+52	1485	8119520776763978	CMakeFiles/cube_solver.dir/src/main.cpp.obj	4bdd7e9930880b9e
+113	1667	8119520777376525	tests/CMakeFiles/solver_tests.dir/__/src/SolverBFS.cpp.obj	b73abb10429d3b53
+65	1681	8119520776888145	CMakeFiles/cube_solver.dir/src/SolverBFS.cpp.obj	3894af41c49f7771
+87	1929	8119520777116423	CMakeFiles/cube_solver.dir/src/Benchmark.cpp.obj	dfc6c7f7bf7cae7c
+99	1947	8119520777236495	tests/CMakeFiles/solver_tests.dir/test_solver.cpp.obj	3e4864b224d12e4
+1948	2364	8119520795711768	tests/solver_tests.exe	2e449ec77449ac1b
+1930	2367	8119520795542605	cube_solver.exe	ba7ce895ce2dd121

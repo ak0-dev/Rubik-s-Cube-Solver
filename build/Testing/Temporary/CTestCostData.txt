@@ -1,3 +1,4 @@
-move_cycles 8 0.143743
-solver_random_scrambles 2 20.083
+move_cycles 9 0.00394549
+solver_random_scrambles 2 0
 ---
+solver_random_scrambles

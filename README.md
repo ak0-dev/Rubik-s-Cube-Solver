@@ -9,6 +9,7 @@ The project compares an uninformed shortest-path search with a heuristic-guided 
 - `src/`: native solver, cube model, move engine, scrambler, heuristics, and WebAssembly bindings.
 - `tests/`: native move and solver tests.
 - `web/index.html`: browser UI with the Three.js cube and solver controls.
+- `web/solver-worker.js`: Web Worker that owns the WASM solver module.
 - `web/cube_solver.js` and `web/cube_solver.wasm`: browser-ready Emscripten artifacts.
 - `build/`: native CMake output and local WebAssembly build output.
 
@@ -44,6 +45,8 @@ The browser app provides:
 - OrbitControls for mouse/touch rotation and scroll or pinch zoom.
 - A scramble count input and Scramble, Solve with BFS, and Solve with IDA* buttons.
 - Step-by-step solution playback with a 500 ms delay between moves.
+- Solver execution in a Web Worker so the page remains interactive during long searches.
+- A Cancel button that terminates the worker and restores the cube state from before solving.
 - Results for status, moves, explored nodes, and elapsed time.
 - A solved-state check that skips search and animation when the cube is already solved.
 
@@ -128,7 +131,7 @@ BFS currently tracks visited cube states without including the previous move in 
 
 This is a known tradeoff of the baseline BFS implementation and contributes to its memory and performance limits.
 
-The browser search runs synchronously on the main thread. A long BFS or IDA* search can therefore make the page unresponsive until the solver returns. A Web Worker is the natural next step for interruptible, non-blocking searches.
+The solver still runs synchronously inside the Web Worker, so the worker is busy during a search. The main page remains responsive and can terminate the worker through Cancel; a new worker restores the authoritative WASM state afterward.
 
 ## Build and Run
 

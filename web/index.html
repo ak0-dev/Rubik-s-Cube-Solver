@@ -94,6 +94,12 @@
       opacity: 0.6;
     }
 
+    #cancel-button {
+      display: none;
+      background: #fb7185;
+      border-color: #fb7185;
+    }
+
     #cube-view {
       width: min(100%, 720px);
       height: min(70vh, 600px);
@@ -157,6 +163,7 @@
       <button id="scramble-button" type="button">Scramble</button>
       <button id="bfs-button" type="button">Solve with BFS</button>
       <button id="ida-button" type="button">Solve with IDA*</button>
+      <button id="cancel-button" type="button">Cancel</button>
     </div>
     <div id="cube-view"></div>
     <section id="results-panel" aria-live="polite">
@@ -183,7 +190,6 @@
   <script type="module">
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
     import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js";
-    import createCubeSolver from "./cube_solver.js";
 
     const cubeView = document.getElementById("cube-view");
     const resultMessage = document.getElementById("result-message");
@@ -196,6 +202,7 @@
     const scrambleButton = document.getElementById("scramble-button");
     const bfsButton = document.getElementById("bfs-button");
     const idaButton = document.getElementById("ida-button");
+    const cancelButton = document.getElementById("cancel-button");
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0f172a);
@@ -317,6 +324,10 @@
     }
 
     function moveStrings(moveVector) {
+      if (Array.isArray(moveVector)) {
+        return moveVector;
+      }
+
       return Array.from(
         { length: moveVector.size() },
         (_, index) => moveVector.get(index),
@@ -346,18 +357,38 @@
       idaButton.disabled = disabled;
     }
 
+    function setSolvingState(solving) {
+      setButtonsDisabled(solving);
+      cancelButton.style.display = solving ? "inline-block" : "none";
+    }
+
+    function snapshotVisualCube() {
+      return cubies.map(cubie => ({
+        position: cubie.position.clone(),
+        rotation: cubie.rotation.clone(),
+        gridPosition: cubie.userData.gridPosition.clone(),
+      }));
+    }
+
+    function restoreVisualCube(snapshot) {
+      cubies.forEach((cubie, index) => {
+        cubie.position.copy(snapshot[index].position);
+        cubie.rotation.copy(snapshot[index].rotation);
+        cubie.userData.gridPosition.copy(snapshot[index].gridPosition);
+      });
+    }
+
     function wait(milliseconds) {
       return new Promise(resolve => setTimeout(resolve, milliseconds));
     }
 
-    async function playSolution(module, result) {
+    async function playSolution(result) {
       if (result.status !== "Solved") {
         return;
       }
 
       const solution = moveStrings(result.moves);
       for (let index = 0; index < solution.length; index += 1) {
-        module.applyMoveToCurrentCube(solution[index]);
         applyVisualMove(solution[index]);
         if (index < solution.length - 1) {
           await wait(500);
@@ -365,69 +396,104 @@
       }
     }
 
-    try {
-      const module = await createCubeSolver();
+    let worker;
+    let workerReady = false;
+    let requestId = 0;
+    let currentMoves = [];
+    let solveSnapshot;
+    let solveStart;
 
-      scrambleButton.addEventListener("click", () => {
+    function createWorker() {
+      worker = new Worker("./solver-worker.js", { type: "module" });
+      worker.onmessage = event => {
+        const message = event.data;
+        if (message.type === "ready") {
+          workerReady = true;
+          return;
+        }
+        if (message.type === "scrambleResult") {
+          currentMoves = message.moves;
+          resetVisualCube();
+          for (const move of currentMoves) {
+            applyVisualMove(move);
+          }
+          clearSolveResult();
+          resultMessage.textContent = `Scramble moves: ${currentMoves.join(" ") || "(none)"}`;
+          return;
+        }
+        if (message.type === "solveResult") {
+          currentMoves = message.status === "Solved" ? [] : currentMoves;
+          playSolution(message).then(() => {
+            writeSolveResult(message.algorithm, message, message.elapsedMs);
+            setSolvingState(false);
+            solveSnapshot = null;
+          });
+          return;
+        }
+        if (message.type === "error") {
+          resultMessage.textContent = `Error: ${message.message}`;
+          setSolvingState(false);
+        }
+      };
+      worker.onerror = error => {
+        resultMessage.textContent = `Error: ${error.message}`;
+        setSolvingState(false);
+      };
+    }
+
+    function sendWorkerMessage(message) {
+      worker.postMessage({ ...message, requestId: ++requestId });
+    }
+
+    function cancelSolve() {
+      if (!solveSnapshot) {
+        return;
+      }
+
+      worker.terminate();
+      workerReady = false;
+      worker = null;
+      restoreVisualCube(solveSnapshot.visual);
+      currentMoves = solveSnapshot.moves;
+      clearSolveResult();
+      resultMessage.textContent = "Solve cancelled";
+      setSolvingState(false);
+      solveSnapshot = null;
+      createWorker();
+      worker.postMessage({ type: "restore", moves: currentMoves, requestId: ++requestId });
+    }
+
+    createWorker();
+
+    scrambleButton.addEventListener("click", () => {
+      if (!workerReady) {
+        return;
+      }
         const moveCount = Math.max(0, Number.parseInt(scrambleCount.value, 10) || 0);
         scrambleCount.value = moveCount;
-        module.resetCube();
-        resetVisualCube();
-
-        const scramble = moveStrings(module.scrambleCube(moveCount).moves);
-        for (const move of scramble) {
-          applyVisualMove(move);
-        }
-        clearSolveResult();
-        resultMessage.textContent = `Scramble moves: ${scramble.join(" ") || "(none)"}`;
+        sendWorkerMessage({ type: "scramble", count: moveCount });
       });
 
-      bfsButton.addEventListener("click", async () => {
-        setButtonsDisabled(true);
+    function solveWith(algorithm) {
+      if (!workerReady) {
+        return;
+      }
+
+      solveSnapshot = {
+        visual: snapshotVisualCube(),
+        moves: [...currentMoves],
+      };
+      setSolvingState(true);
         clearSolveResult();
-        try {
-          if (module.isCubeSolved()) {
-            resultMessage.textContent = "Cube is already solved";
-            return;
-          }
-
-          resultMessage.textContent = "Solving...";
-          const start = performance.now();
-          const result = module.solveCurrentCubeBFS();
-          await playSolution(module, result);
-          writeSolveResult("BFS", result, performance.now() - start);
-        } catch (error) {
-          resultMessage.textContent = `Error: ${error}`;
-        } finally {
-          setButtonsDisabled(false);
-        }
-      });
-
-      idaButton.addEventListener("click", async () => {
-        setButtonsDisabled(true);
-        clearSolveResult();
-        try {
-          if (module.isCubeSolved()) {
-            resultMessage.textContent = "Cube is already solved";
-            return;
-          }
-
-          resultMessage.textContent = "Solving...";
-          const start = performance.now();
-          const result = module.solveCurrentCubeIDAStar();
-          await playSolution(module, result);
-          writeSolveResult("IDA*", result, performance.now() - start);
-        } catch (error) {
-          resultMessage.textContent = `Error: ${error}`;
-        } finally {
-          setButtonsDisabled(false);
-        }
-      });
-
-      resultMessage.textContent = "Ready. Choose a scramble length and click Scramble.";
-    } catch (error) {
-      resultMessage.textContent = `Error: ${error}`;
+      resultMessage.textContent = "Solving...";
+      solveStart = performance.now();
+      sendWorkerMessage({ type: "solve", algorithm });
     }
+
+    bfsButton.addEventListener("click", () => solveWith("BFS"));
+    idaButton.addEventListener("click", () => solveWith("IDA*"));
+    cancelButton.addEventListener("click", cancelSolve);
+    resultMessage.textContent = "Ready. Choose a scramble length and click Scramble.";
   </script>
 </body>
 </html>
