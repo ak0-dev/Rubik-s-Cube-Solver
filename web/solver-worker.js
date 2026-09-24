@@ -23,7 +23,12 @@ async function handleMessage(event) {
   if (type === "scramble") {
     module.resetCube();
     const scramble = moveStrings(module.scrambleCube(event.data.count).moves);
-    self.postMessage({ type: "scrambleResult", requestId, moves: scramble });
+    self.postMessage({
+      type: "scrambleResult",
+      requestId,
+      moves: scramble,
+      solved: module.isCubeSolved(),
+    });
     return;
   }
 
@@ -53,6 +58,7 @@ async function handleMessage(event) {
       moves,
       nodesExplored: result.nodesExplored,
       elapsedMs: performance.now() - start,
+      solved: module.isCubeSolved(),
     });
   }
 }

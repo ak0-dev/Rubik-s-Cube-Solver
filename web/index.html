@@ -400,6 +400,7 @@
     let workerReady = false;
     let requestId = 0;
     let currentMoves = [];
+    let cubeSolved = true;
     let solveSnapshot;
     let solveStart;
 
@@ -413,6 +414,7 @@
         }
         if (message.type === "scrambleResult") {
           currentMoves = message.moves;
+          cubeSolved = message.solved;
           resetVisualCube();
           for (const move of currentMoves) {
             applyVisualMove(move);
@@ -423,6 +425,7 @@
         }
         if (message.type === "solveResult") {
           currentMoves = message.status === "Solved" ? [] : currentMoves;
+          cubeSolved = message.solved;
           playSolution(message).then(() => {
             writeSolveResult(message.algorithm, message, message.elapsedMs);
             setSolvingState(false);
@@ -475,6 +478,12 @@
       });
 
     function solveWith(algorithm) {
+      if (cubeSolved) {
+        clearSolveResult();
+        resultMessage.textContent = "Cube is already solved";
+        return;
+      }
+
       if (!workerReady) {
         return;
       }
