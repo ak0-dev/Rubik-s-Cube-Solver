@@ -384,11 +384,13 @@
 
       bfsButton.addEventListener("click", async () => {
         setButtonsDisabled(true);
+        clearSolveResult();
+        resultMessage.textContent = "Solving...";
         try {
           const start = performance.now();
           const result = module.solveCurrentCubeBFS();
-          writeSolveResult("BFS", result, performance.now() - start);
           await playSolution(result);
+          writeSolveResult("BFS", result, performance.now() - start);
         } catch (error) {
           resultMessage.textContent = `Error: ${error}`;
         } finally {
@@ -398,11 +400,13 @@
 
       idaButton.addEventListener("click", async () => {
         setButtonsDisabled(true);
+        clearSolveResult();
+        resultMessage.textContent = "Solving...";
         try {
           const start = performance.now();
           const result = module.solveCurrentCubeIDAStar();
-          writeSolveResult("IDA*", result, performance.now() - start);
           await playSolution(result);
+          writeSolveResult("IDA*", result, performance.now() - start);
         } catch (error) {
           resultMessage.textContent = `Error: ${error}`;
         } finally {
