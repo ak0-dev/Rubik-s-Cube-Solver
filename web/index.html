@@ -385,8 +385,13 @@
       bfsButton.addEventListener("click", async () => {
         setButtonsDisabled(true);
         clearSolveResult();
-        resultMessage.textContent = "Solving...";
         try {
+          if (module.isCubeSolved()) {
+            resultMessage.textContent = "Cube is already solved";
+            return;
+          }
+
+          resultMessage.textContent = "Solving...";
           const start = performance.now();
           const result = module.solveCurrentCubeBFS();
           await playSolution(result);
@@ -401,8 +406,13 @@
       idaButton.addEventListener("click", async () => {
         setButtonsDisabled(true);
         clearSolveResult();
-        resultMessage.textContent = "Solving...";
         try {
+          if (module.isCubeSolved()) {
+            resultMessage.textContent = "Cube is already solved";
+            return;
+          }
+
+          resultMessage.textContent = "Solving...";
           const start = performance.now();
           const result = module.solveCurrentCubeIDAStar();
           await playSolution(result);

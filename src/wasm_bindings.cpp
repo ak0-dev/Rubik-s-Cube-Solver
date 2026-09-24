@@ -71,6 +71,10 @@ void resetCube() {
     currentCube = CubeState{};
 }
 
+bool isCubeSolved() {
+    return currentCube.isSolved();
+}
+
 MoveList scrambleCube(int numMoves) {
     if (numMoves < 0) {
         numMoves = 0;
@@ -119,6 +123,7 @@ EMSCRIPTEN_BINDINGS(cube_solver) {
     emscripten::register_vector<std::string>("StringVector");
 
     emscripten::function("resetCube", &resetCube);
+    emscripten::function("isCubeSolved", &isCubeSolved);
     emscripten::function("scrambleCube", &scrambleCube);
     emscripten::function("solveCurrentCubeBFS", &solveCurrentCubeBFS);
     emscripten::function("solveCurrentCubeBFSWithOptions",
