@@ -75,6 +75,35 @@ bool isCubeSolved() {
     return currentCube.isSolved();
 }
 
+bool parseMoveName(const std::string& name, Move& move) {
+    if (name == "U") { move = Move::U; return true; }
+    if (name == "U'") { move = Move::UPrime; return true; }
+    if (name == "U2") { move = Move::U2; return true; }
+    if (name == "D") { move = Move::D; return true; }
+    if (name == "D'") { move = Move::DPrime; return true; }
+    if (name == "D2") { move = Move::D2; return true; }
+    if (name == "L") { move = Move::L; return true; }
+    if (name == "L'") { move = Move::LPrime; return true; }
+    if (name == "L2") { move = Move::L2; return true; }
+    if (name == "R") { move = Move::R; return true; }
+    if (name == "R'") { move = Move::RPrime; return true; }
+    if (name == "R2") { move = Move::R2; return true; }
+    if (name == "F") { move = Move::F; return true; }
+    if (name == "F'") { move = Move::FPrime; return true; }
+    if (name == "F2") { move = Move::F2; return true; }
+    if (name == "B") { move = Move::B; return true; }
+    if (name == "B'") { move = Move::BPrime; return true; }
+    if (name == "B2") { move = Move::B2; return true; }
+    return false;
+}
+
+void applyMoveToCurrentCube(const std::string& name) {
+    Move move = Move::U;
+    if (parseMoveName(name, move)) {
+        applyMove(currentCube, move);
+    }
+}
+
 MoveList scrambleCube(int numMoves) {
     if (numMoves < 0) {
         numMoves = 0;
@@ -124,6 +153,7 @@ EMSCRIPTEN_BINDINGS(cube_solver) {
 
     emscripten::function("resetCube", &resetCube);
     emscripten::function("isCubeSolved", &isCubeSolved);
+    emscripten::function("applyMoveToCurrentCube", &applyMoveToCurrentCube);
     emscripten::function("scrambleCube", &scrambleCube);
     emscripten::function("solveCurrentCubeBFS", &solveCurrentCubeBFS);
     emscripten::function("solveCurrentCubeBFSWithOptions",

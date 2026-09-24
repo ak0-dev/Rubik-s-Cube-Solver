@@ -351,13 +351,14 @@
       return new Promise(resolve => setTimeout(resolve, milliseconds));
     }
 
-    async function playSolution(result) {
+    async function playSolution(module, result) {
       if (result.status !== "Solved") {
         return;
       }
 
       const solution = moveStrings(result.moves);
       for (let index = 0; index < solution.length; index += 1) {
+        module.applyMoveToCurrentCube(solution[index]);
         applyVisualMove(solution[index]);
         if (index < solution.length - 1) {
           await wait(500);
@@ -394,7 +395,7 @@
           resultMessage.textContent = "Solving...";
           const start = performance.now();
           const result = module.solveCurrentCubeBFS();
-          await playSolution(result);
+          await playSolution(module, result);
           writeSolveResult("BFS", result, performance.now() - start);
         } catch (error) {
           resultMessage.textContent = `Error: ${error}`;
@@ -415,7 +416,7 @@
           resultMessage.textContent = "Solving...";
           const start = performance.now();
           const result = module.solveCurrentCubeIDAStar();
-          await playSolution(result);
+          await playSolution(module, result);
           writeSolveResult("IDA*", result, performance.now() - start);
         } catch (error) {
           resultMessage.textContent = `Error: ${error}`;
