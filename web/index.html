@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Cube Solver WASM Test</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    .page-shell {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    .page-header {
+      margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .page-header p {
+      margin: 0.75rem 0 0;
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 1.25rem;
+    }
+
+    #controls label {
+      margin-right: 0.15rem;
+    }
+
+    #controls input,
+    #controls button {
+      margin: 0;
+      padding: 0.65rem 0.9rem;
+      border: 1px solid #2dd4bf;
+      border-radius: 8px;
+      font: inherit;
+    }
+
+    #controls input {
+      width: 4rem;
+      background: #111827;
+      color: #f8fafc;
+    }
+
+    #controls button {
+      cursor: pointer;
+      background: #2dd4bf;
+      color: #0f172a;
+      font-weight: 600;
+      transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+
+    #controls button:hover:not(:disabled) {
+      background: #5eead4;
+      box-shadow: 0 4px 12px rgba(45, 212, 191, 0.25);
+      transform: translateY(-1px);
+    }
+
+    #controls button:disabled {
+      cursor: wait;
+      opacity: 0.6;
+    }
+
+    #cube-view {
+      width: min(100%, 720px);
+      height: min(70vh, 600px);
+      margin: 0 auto;
+      padding: 24px;
+      overflow: hidden;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      background: #1e293b;
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.24);
+    }
+
+    #cube-view canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #results-panel {
+      width: min(100%, 680px);
+      margin: 1.25rem auto 0;
+      padding: 24px;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      background: #1e293b;
+      color: #f8fafc;
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.24);
+    }
+
+    #results-panel h2 {
+      margin: 0 0 1.25rem;
+      font-size: 1.1rem;
+    }
+
+    #output p {
+      display: flex;
+      gap: 0.75rem;
+      margin: 0 0 0.75rem;
+      line-height: 1.5;
+    }
+
+    #output strong {
+      flex: 0 0 8.5rem;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    #output span {
+      color: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-header">
+      <h1>Rubik's Cube Solver</h1>
+      <p>C++17 solver compiled to WebAssembly - comparing BFS and IDA* search</p>
+    </header>
+    <div id="controls">
+      <label for="scramble-count">Scramble moves:</label>
+      <input id="scramble-count" type="number" min="0" value="5">
+      <button id="scramble-button" type="button">Scramble</button>
+      <button id="bfs-button" type="button">Solve with BFS</button>
+      <button id="ida-button" type="button">Solve with IDA*</button>
+    </div>
+    <div id="cube-view"></div>
+    <section id="results-panel" aria-live="polite">
+      <h2>Results</h2>
+      <div id="output">
+        <p><strong>Message:</strong> <span id="result-message">Loading...</span></p>
+        <p><strong>Method:</strong> <span id="result-method">-</span></p>
+        <p><strong>Solution moves:</strong> <span id="result-solution">-</span></p>
+        <p><strong>Status:</strong> <span id="result-status">-</span></p>
+        <p><strong>Nodes explored:</strong> <span id="result-nodes">-</span></p>
+        <p><strong>Time (ms):</strong> <span id="result-time">-</span></p>
+      </div>
+    </section>
+  </main>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js";
+    import createCubeSolver from "../build/cube_solver.js";
+
+    const cubeView = document.getElementById("cube-view");
+    const resultMessage = document.getElementById("result-message");
+    const resultMethod = document.getElementById("result-method");
+    const resultSolution = document.getElementById("result-solution");
+    const resultStatus = document.getElementById("result-status");
+    const resultNodes = document.getElementById("result-nodes");
+    const resultTime = document.getElementById("result-time");
+    const scrambleCount = document.getElementById("scramble-count");
+    const scrambleButton = document.getElementById("scramble-button");
+    const bfsButton = document.getElementById("bfs-button");
+    const idaButton = document.getElementById("ida-button");
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f172a);
+
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    camera.position.set(6, 6, 9);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    cubeView.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.minDistance = 4;
+    controls.maxDistance = 14;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x606060, 2.2));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 3);
+    keyLight.position.set(5, 8, 7);
+    scene.add(keyLight);
+
+    const faceMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0xd62828 }),
+      new THREE.MeshStandardMaterial({ color: 0xf77f00 }),
+      new THREE.MeshStandardMaterial({ color: 0xffffff }),
+      new THREE.MeshStandardMaterial({ color: 0xffd500 }),
+      new THREE.MeshStandardMaterial({ color: 0x168aad }),
+      new THREE.MeshStandardMaterial({ color: 0x06a77d }),
+    ];
+
+    const cubieGeometry = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+    const cubies = [];
+    for (let x = -1; x <= 1; x += 1) {
+      for (let y = -1; y <= 1; y += 1) {
+        for (let z = -1; z <= 1; z += 1) {
+          if (x === 0 && y === 0 && z === 0) {
+            continue;
+          }
+
+          const cubie = new THREE.Mesh(cubieGeometry, faceMaterials);
+          cubie.position.set(x * 1.02, y * 1.02, z * 1.02);
+          cubie.userData.gridPosition = new THREE.Vector3(x, y, z);
+          cubies.push(cubie);
+          scene.add(cubie);
+        }
+      }
+    }
+
+    function resizeRenderer() {
+      const styles = getComputedStyle(cubeView);
+      const width = cubeView.clientWidth -
+        parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+      const height = cubeView.clientHeight -
+        parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
+    }
+
+    window.addEventListener("resize", resizeRenderer);
+    resizeRenderer();
+
+    function animate() {
+      controls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    function resetVisualCube() {
+      for (const cubie of cubies) {
+        const { gridPosition } = cubie.userData;
+        cubie.position.set(
+          gridPosition.x * 1.02,
+          gridPosition.y * 1.02,
+          gridPosition.z * 1.02,
+        );
+        cubie.rotation.set(0, 0, 0);
+      }
+    }
+
+    function applyVisualMove(moveName) {
+      const face = moveName[0];
+      const move = {
+        U: { axis: "y", layer: 1, direction: 1 },
+        D: { axis: "y", layer: -1, direction: -1 },
+        L: { axis: "x", layer: -1, direction: 1 },
+        R: { axis: "x", layer: 1, direction: -1 },
+        F: { axis: "z", layer: 1, direction: 1 },
+        B: { axis: "z", layer: -1, direction: 1 },
+      }[face];
+
+      const turns = moveName.endsWith("2")
+        ? 2
+        : moveName.endsWith("'")
+          ? 3
+          : 1;
+      const axisVector = new THREE.Vector3(
+        move.axis === "x" ? 1 : 0,
+        move.axis === "y" ? 1 : 0,
+        move.axis === "z" ? 1 : 0,
+      );
+      const angle = move.direction * turns * Math.PI / 2;
+
+      for (const cubie of cubies) {
+        if (cubie.userData.gridPosition[move.axis] !== move.layer) {
+          continue;
+        }
+
+        cubie.position.applyAxisAngle(axisVector, angle);
+        cubie.rotateOnWorldAxis(axisVector, angle);
+        cubie.userData.gridPosition.set(
+          Math.round(cubie.position.x / 1.02),
+          Math.round(cubie.position.y / 1.02),
+          Math.round(cubie.position.z / 1.02),
+        );
+      }
+    }
+
+    function moveStrings(moveVector) {
+      return Array.from(
+        { length: moveVector.size() },
+        (_, index) => moveVector.get(index),
+      );
+    }
+
+    function writeSolveResult(method, result, elapsedMs) {
+      resultMessage.textContent = "";
+      resultMethod.textContent = method;
+      resultSolution.textContent = moveStrings(result.moves).join(" ") || "(none)";
+      resultStatus.textContent = result.status;
+      resultNodes.textContent = result.nodesExplored;
+      resultTime.textContent = elapsedMs.toFixed(2);
+    }
+
+    function clearSolveResult() {
+      resultMethod.textContent = "-";
+      resultSolution.textContent = "-";
+      resultStatus.textContent = "-";
+      resultNodes.textContent = "-";
+      resultTime.textContent = "-";
+    }
+
+    function setButtonsDisabled(disabled) {
+      scrambleButton.disabled = disabled;
+      bfsButton.disabled = disabled;
+      idaButton.disabled = disabled;
+    }
+
+    function wait(milliseconds) {
+      return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    async function playSolution(result) {
+      if (result.status !== "Solved") {
+        return;
+      }
+
+      const solution = moveStrings(result.moves);
+      for (let index = 0; index < solution.length; index += 1) {
+        applyVisualMove(solution[index]);
+        if (index < solution.length - 1) {
+          await wait(500);
+        }
+      }
+    }
+
+    try {
+      const module = await createCubeSolver();
+
+      scrambleButton.addEventListener("click", () => {
+        const moveCount = Math.max(0, Number.parseInt(scrambleCount.value, 10) || 0);
+        scrambleCount.value = moveCount;
+        module.resetCube();
+        resetVisualCube();
+
+        const scramble = moveStrings(module.scrambleCube(moveCount).moves);
+        for (const move of scramble) {
+          applyVisualMove(move);
+        }
+        clearSolveResult();
+        resultMessage.textContent = `Scramble moves: ${scramble.join(" ") || "(none)"}`;
+      });
+
+      bfsButton.addEventListener("click", async () => {
+        setButtonsDisabled(true);
+        try {
+          const start = performance.now();
+          const result = module.solveCurrentCubeBFS();
+          writeSolveResult("BFS", result, performance.now() - start);
+          await playSolution(result);
+        } catch (error) {
+          resultMessage.textContent = `Error: ${error}`;
+        } finally {
+          setButtonsDisabled(false);
+        }
+      });
+
+      idaButton.addEventListener("click", async () => {
+        setButtonsDisabled(true);
+        try {
+          const start = performance.now();
+          const result = module.solveCurrentCubeIDAStar();
+          writeSolveResult("IDA*", result, performance.now() - start);
+          await playSolution(result);
+        } catch (error) {
+          resultMessage.textContent = `Error: ${error}`;
+        } finally {
+          setButtonsDisabled(false);
+        }
+      });
+
+      resultMessage.textContent = "Ready. Choose a scramble length and click Scramble.";
+    } catch (error) {
+      resultMessage.textContent = `Error: ${error}`;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+scramble_depth,solver,status,time_ms,nodes_explored,solution_length
+3,BFS,success,9.339,239,3
+3,IDA*,success,0.100,90,3
+5,BFS,success,670.431,32850,5
+5,IDA*,success,2.116,5538,5
+7,BFS,timeout,2355.678,108924,0
+7,IDA*,success,206.464,572156,7
+9,BFS,timeout,2308.052,109272,0
+9,IDA*,timeout,2000.002,5120794,0

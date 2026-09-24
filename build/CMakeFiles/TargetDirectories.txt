@@ -1,0 +1,9 @@
+F:/Coding/Project/build/CMakeFiles/cube_solver.dir
+F:/Coding/Project/build/CMakeFiles/test.dir
+F:/Coding/Project/build/CMakeFiles/edit_cache.dir
+F:/Coding/Project/build/CMakeFiles/rebuild_cache.dir
+F:/Coding/Project/build/tests/CMakeFiles/move_tests.dir
+F:/Coding/Project/build/tests/CMakeFiles/solver_tests.dir
+F:/Coding/Project/build/tests/CMakeFiles/test.dir
+F:/Coding/Project/build/tests/CMakeFiles/edit_cache.dir
+F:/Coding/Project/build/tests/CMakeFiles/rebuild_cache.dir
