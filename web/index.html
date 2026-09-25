@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Cube Solver WASM Test</title>
+  <link rel="icon" href="./logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +33,16 @@
     }
 
     .page-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
       margin-bottom: 2rem;
+    }
+
+    .page-header img {
+      width: 64px;
+      height: 64px;
+      flex: 0 0 auto;
     }
 
     .page-header h1 {
@@ -155,6 +165,7 @@
 <body>
   <main class="page-shell">
     <header class="page-header">
+      <img src="./logo.svg" alt="Rubik's Cube Solver logo">
       <h1>Rubik's Cube Solver</h1>
     </header>
     <div id="controls">
